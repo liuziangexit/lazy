@@ -8,7 +8,7 @@
  * A thread-safe wrapper class that provides lazy initialization semantics for
  * any type.
  *
- * requires C++14.
+ * requires C++17.
  *
  */
 #pragma once
@@ -16,6 +16,7 @@
 #define _liuziangexit_lazy
 #include <atomic>
 #include <cstddef>
+#include <exception>
 #include <memory>
 #include <mutex>
 #include <tuple>
@@ -49,6 +50,12 @@ void function_call(const _Func &func, const _Tuple &tuple) {
 }
 
 } // namespace detail
+
+class construction_error : public std::exception {
+  virtual const char *what() const noexcept override {
+    return "constructor throws an exception";
+  }
+};
 
 template <typename _Ty, typename _Alloc, typename... _ConstructorArgs>
 class lazy {
@@ -93,6 +100,8 @@ public:
 
 public:
   // get the lazily initialized value
+  // if memory allocation fails, std::bad_alloc will be thrown
+  // if constructor throws an exception, nullptr will be return
   value_type &get_instance() {
     if (!m_instance) {
       std::atomic_thread_fence(std::memory_order::memory_order_acquire);
@@ -108,9 +117,9 @@ public:
                   new (new_instance) value_type(args...);
                 },
                 this->m_constructor_args);
-          } catch (const std::bad_alloc &ex) {
+          } catch (...) {
             this->m_allocator.deallocate(this->m_instance, 1);
-            throw ex;
+            throw construction_error();
           }
           std::atomic_thread_fence(std::memory_order::memory_order_release);
           this->m_instance = new_instance;
