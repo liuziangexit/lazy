@@ -140,7 +140,7 @@ private:
   allocator_type m_allocator;
   constructor_args_tuple m_constructor_args;
   std::mutex m_lock;
-}; // namespace liuziangexit_lazy
+};
 
 template <typename _Ty, typename... _ConstructorArgs>
 auto make_lazy(const _ConstructorArgs &... constructor_args) {
