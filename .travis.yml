@@ -1,0 +1,25 @@
+dist: trusty
+sudo: require
+language: none
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-7
+      - g++-7
+script:
+ - sudo rm -rf /usr/local/bin/gcc
+ - sudo ln -s /usr/bin/gcc-7 /usr/local/bin/gcc
+ - sudo rm -rf /usr/local/bin/g++
+ - sudo ln -s /usr/bin/g++-7 /usr/local/bin/g++
+ - g++ --version
+ - cd test
+ - g++ -std=c++17 -c main.cpp -o main.o
+ - g++ main.o -o main.dll
+ - ./main.dll
+ 
+notifications:
+  email:
+    - liuziangexit@gmail.com
