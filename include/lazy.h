@@ -101,7 +101,7 @@ public:
 public:
   // get the lazily initialized value
   // if memory allocation fails, std::bad_alloc will be thrown
-  // if constructor throws an exception, nullptr will be return
+  // if constructor throws an exception, construction_error will be thrown
   value_type &get_instance() {
     if (!m_instance) {
       std::atomic_thread_fence(std::memory_order::memory_order_acquire);

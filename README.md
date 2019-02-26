@@ -55,3 +55,16 @@ int main() {
 //离开作用域时，lazily_big_object及其管理之对象会被析构
 
 ```
+
+<h2>Thread-safety / 线程安全</h2>
+The following member function of class lazy is thread-safe:
+<br>
+- get_instance
+<br>
+- is_instance_created
+<br><br>
+类lazy的以下成员函数是线程安全的：
+<br>
+- get_instance
+<br>
+- is_instance_created

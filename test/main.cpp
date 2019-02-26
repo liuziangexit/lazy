@@ -6,6 +6,7 @@
 #endif
 
 #include "../include/lazy.h"
+#include <exception>
 #include <iostream>
 #include <map>
 using namespace liuziangexit_lazy;
@@ -29,6 +30,10 @@ struct valueclass {
   valueclass(const argclass &) : arg_count(1) {}
   valueclass(const argclass &, const argclass &) : arg_count(2) {}
   int arg_count;
+};
+
+struct bomb {
+  bomb() { throw std::exception(); }
 };
 
 void case_assert(bool v) {
@@ -58,6 +63,13 @@ int main() {
     case_assert(lazy3.is_instance_created() == false);
     case_assert(lazy3.get_instance().arg_count == 2);
     case_assert(lazy3.is_instance_created() == true);
+    case_assert(&lazy3.get_instance() == &lazy3.get_instance());
+    auto lazy4 = make_lazy<bomb>();
+    try {
+      lazy4.get_instance();
+      case_assert(false);
+    } catch (const construction_error &ex) {
+    }
 
     std::cout << "GREAT SUCCESS!";
     // std::cin.get();
