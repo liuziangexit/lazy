@@ -69,6 +69,7 @@ public:
       "lazy::value_type should equals to lazy::allocator_type::value_type");
   using reference = value_type &;
   using const_reference = const value_type &;
+  using pointer = value_type *;
 
 private:
   using constructor_args_tuple = std::tuple<_ConstructorArgs...>;
@@ -76,14 +77,16 @@ private:
 public:
   constexpr explicit lazy(const allocator_type &alloc,
                           const _ConstructorArgs &... args)
-      : m_allocator(alloc), m_constructor_args(std::make_tuple(args...)) {}
+      : m_allocator(alloc), m_constructor_args(std::make_tuple(args...)),
+        m_instance(nullptr) {}
 
   lazy(const lazy &) = delete;
 
   lazy(lazy &&rhs)
-      : m_instance(rhs.m_instance), m_allocator(std::move(rhs.m_allocator)),
+      : m_instance(rhs.m_instance.load(std::memory_order_relaxed)),
+        m_allocator(std::move(rhs.m_allocator)),
         m_constructor_args(std::move(rhs.m_constructor_args)) {
-    rhs.m_instance = nullptr;
+    rhs.m_instance.store(nullptr, std::memory_order_relaxed);
   }
 
   lazy operator=(const lazy &) = delete;
@@ -94,8 +97,9 @@ public:
   }
 
   ~lazy() noexcept {
-    this->m_instance->~value_type();
-    this->m_allocator.deallocate(this->m_instance, 1);
+    this->m_instance.load(std::memory_order_relaxed)->~value_type();
+    this->m_allocator.deallocate(
+        this->m_instance.load(std::memory_order_relaxed), 1);
   }
 
 public:
@@ -103,11 +107,10 @@ public:
   // if memory allocation fails, std::bad_alloc will be thrown
   // if constructor throws an exception, construction_error will be thrown
   value_type &get_instance() {
-    if (!m_instance) {
-      std::atomic_thread_fence(std::memory_order::memory_order_acquire);
+    if (!m_instance.load(std::memory_order::memory_order_acquire)) {
       {
         std::lock_guard<std::mutex> guard(m_lock);
-        if (!m_instance) {
+        if (!m_instance.load(std::memory_order::memory_order_relaxed)) {
           // allocate memory
           value_type *new_instance = this->m_allocator.allocate(1);
           try {
@@ -118,25 +121,24 @@ public:
                 },
                 this->m_constructor_args);
           } catch (...) {
-            this->m_allocator.deallocate(this->m_instance, 1);
+            this->m_allocator.deallocate(new_instance, 1);
             throw construction_error();
           }
-          std::atomic_thread_fence(std::memory_order::memory_order_release);
-          this->m_instance = new_instance;
+          m_instance.store(new_instance,
+                           std::memory_order::memory_order_release);
         }
       } // lock_guard
     }
-    return *m_instance;
+    return *m_instance.load(std::memory_order::memory_order_relaxed);
   }
 
   // indicates whether a value has been created
   bool is_instance_created() {
-    std::atomic_thread_fence(std::memory_order::memory_order_acquire);
-    return m_instance;
+    return m_instance.load(std::memory_order::memory_order_acquire);
   }
 
 private:
-  value_type *m_instance{nullptr};
+  std::atomic<pointer> m_instance;
   allocator_type m_allocator;
   constructor_args_tuple m_constructor_args;
   std::mutex m_lock;
