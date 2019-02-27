@@ -108,26 +108,23 @@ public:
   // if constructor throws an exception, construction_error will be thrown
   value_type &get_instance() {
     if (!m_instance.load(std::memory_order::memory_order_acquire)) {
-      {
-        std::lock_guard<std::mutex> guard(m_lock);
-        if (!m_instance.load(std::memory_order::memory_order_relaxed)) {
-          // allocate memory
-          value_type *new_instance = this->m_allocator.allocate(1);
-          try {
-            // invoke constructor
-            detail::function_call(
-                [new_instance](const auto &... args) {
-                  new (new_instance) value_type(args...);
-                },
-                this->m_constructor_args);
-          } catch (...) {
-            this->m_allocator.deallocate(new_instance, 1);
-            throw construction_error();
-          }
-          m_instance.store(new_instance,
-                           std::memory_order::memory_order_release);
+      std::lock_guard<std::mutex> guard(m_lock);
+      if (!m_instance.load(std::memory_order::memory_order_relaxed)) {
+        // allocate memory
+        value_type *new_instance = this->m_allocator.allocate(1);
+        try {
+          // invoke constructor
+          detail::function_call(
+              [new_instance](const auto &... args) {
+                new (new_instance) value_type(args...);
+              },
+              this->m_constructor_args);
+        } catch (...) {
+          this->m_allocator.deallocate(new_instance, 1);
+          throw construction_error();
         }
-      } // lock_guard
+        m_instance.store(new_instance, std::memory_order::memory_order_release);
+      }
     }
     return *m_instance.load(std::memory_order::memory_order_relaxed);
   }
