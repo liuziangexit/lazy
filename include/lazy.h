@@ -82,7 +82,7 @@ public:
 
   lazy(const lazy &) = delete;
 
-  lazy(lazy &&rhs)
+  lazy(lazy &&rhs) noexcept
       : m_instance(rhs.m_instance.load(std::memory_order_relaxed)),
         m_allocator(std::move(rhs.m_allocator)),
         m_constructor_args(std::move(rhs.m_constructor_args)) {
@@ -91,7 +91,7 @@ public:
 
   lazy operator=(const lazy &) = delete;
 
-  lazy operator=(lazy &&rhs) {
+  lazy operator=(lazy &&rhs) noexcept {
     this->~lazy();
     new (this) lazy(std::move(rhs));
   }
