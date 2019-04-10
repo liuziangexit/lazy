@@ -16,7 +16,7 @@ script:
  - sudo ln -s /usr/bin/g++-7 /usr/local/bin/g++
  - g++ --version
  - cd test
- - g++ -std=c++17 -c main.cpp -o main.o
+ - g++ -O3 -std=c++17 -c main.cpp -o main.o
  - g++ main.o -o main.dll
  - ./main.dll
  
