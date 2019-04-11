@@ -19,6 +19,7 @@
 #include <exception>
 #include <memory>
 #include <mutex>
+#include <new>
 #include <tuple>
 #include <type_traits>
 
@@ -126,7 +127,14 @@ public:
         m_instance.store(new_instance, std::memory_order::memory_order_release);
       }
     }
+    // https://en.cppreference.com/w/cpp/utility/launder
+    // https://en.cppreference.com/w/cpp/feature_test
+#ifdef __cpp_lib_launder
+    return std::launder(
+        *m_instance.load(std::memory_order::memory_order_relaxed));
+#else
     return *m_instance.load(std::memory_order::memory_order_relaxed);
+#endif
   }
 
   // indicates whether a value has been created
