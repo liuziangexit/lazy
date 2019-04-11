@@ -331,3 +331,5 @@ ASALocalRun/
 
 #vscode
 .vscode/
+test/main.dll
+test/main.o

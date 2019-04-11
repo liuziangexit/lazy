@@ -130,8 +130,8 @@ public:
     // https://en.cppreference.com/w/cpp/utility/launder
     // https://en.cppreference.com/w/cpp/feature_test
 #ifdef __cpp_lib_launder
-    return std::launder(
-        *m_instance.load(std::memory_order::memory_order_relaxed));
+    return *std::launder(
+        m_instance.load(std::memory_order::memory_order_relaxed));
 #else
     return *m_instance.load(std::memory_order::memory_order_relaxed);
 #endif
