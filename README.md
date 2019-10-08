@@ -1,5 +1,5 @@
 # lazy
-[![Build Status](https://github.com/liuziangexit/lazy/workflows/.github/workflows/ccpp.yml/badge.svg)](https://github.com/liuziangexit/lazy/actions)
+[![Build Status](https://github.com/liuziangexit/lazy/workflows/ccpp/badge.svg)](https://github.com/liuziangexit/lazy/actions)
 [![Build Status](https://travis-ci.com/liuziangexit/lazy.svg?branch=master)](https://travis-ci.com/liuziangexit/lazy)
 <br>
 lazy initialization implementation written in C++17.
