@@ -6,6 +6,7 @@
 
 #include "../include/lazy.h"
 #include <cassert>
+#include <cstring>
 #include <exception>
 #include <iostream>
 #include <map>
@@ -33,7 +34,7 @@ struct valueclass {
 };
 
 struct bomb {
-  bomb() { throw std::exception(); }
+  bomb() { throw std::runtime_error("naive"); }
 };
 
 static int *empty_count = nullptr;
@@ -86,7 +87,10 @@ int main() {
     try {
       lazy4.get_instance();
       assert(false);
-    } catch (const construction_error &ex) {
+    } catch (const std::runtime_error &ex) {
+      assert(strcmp(ex.what(), "naive") == 0);
+    } catch (...) {
+      assert(false);
     }
 
     int empty = 0, copy = 0, move = 0;

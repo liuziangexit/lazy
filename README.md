@@ -7,7 +7,7 @@ lazy initialization implementation written in C++17.
 <h2>Features / 功能</h2>
 -Lazy initialize / 懒初始化
 <br>
--Support thread-safety / 线程安全支持
+-Thread-safe and Exception-safe / 线程安全和异常安全
 <br>
 -Support passing constructor arguments(Forwarding Reference) / 支持传递构造函数参数（完美转发）
 <br>

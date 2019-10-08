@@ -8,7 +8,7 @@
  * A thread-safe wrapper class that provides lazy initialization semantics for
  * any type.
  *
- * requires C++17.
+ * Requires C++17.
  *
  */
 #pragma once
@@ -51,12 +51,6 @@ void function_call(const _Func &func, _Tuple &&tuple) {
 
 } // namespace detail
 
-class construction_error : public std::exception {
-  virtual const char *what() const noexcept override {
-    return "constructor throws an exception";
-  }
-};
-
 template <typename _Ty, typename _Alloc, typename... _ConstructorArgs>
 class lazy {
 public:
@@ -78,12 +72,14 @@ private:
 
 public:
   /*
-   use _DeductionTrigger(type parameter of templated constructor) rather than
+   Construct lazy object.
+
+   Use _DeductionTrigger(type parameter of templated constructor) rather than
    _ConstructorArgs(type parameter of template class) to trigger a deduction.
 
-   this deduction makes variable 'args' becomes a forwarding reference but not
+   This deduction makes variable 'args' becomes a forwarding reference but not
    a rvalue reference.
-    */
+  */
   template <typename... _DeductionTrigger>
   constexpr explicit lazy(const allocator_type &alloc,
                           _DeductionTrigger &&... args)
@@ -117,9 +113,15 @@ public:
   }
 
 public:
-  // get the lazily initialized value
-  // if memory allocation fails, std::bad_alloc will be thrown
-  // if constructor throws an exception, construction_error will be thrown
+  /*
+   Get the lazily initialized value.
+
+   This function is exception-safe. if the constructor throws an exception,
+   that exception WILL rethrow and WILL NOT cause any leak or illegal state.
+
+   If memory allocation fails or constructor throws std::bad_alloc,
+   std::bad_alloc will be thrown.
+  */
   value_type &get_instance() {
     if (!m_instance.load(std::memory_order::memory_order_acquire)) {
       std::lock_guard<std::mutex> guard(m_lock);
@@ -136,7 +138,7 @@ public:
               std::move(this->m_constructor_arguments));
         } catch (...) {
           this->m_allocator.deallocate(new_instance, 1);
-          throw construction_error();
+          std::rethrow_exception(std::current_exception());
         }
         m_instance.store(new_instance, std::memory_order::memory_order_release);
       }
@@ -151,7 +153,7 @@ public:
 #endif
   }
 
-  // indicates whether a value has been created
+  // Indicates whether a value has been created.
   bool is_instance_created() {
     return m_instance.load(std::memory_order::memory_order_acquire);
   }
