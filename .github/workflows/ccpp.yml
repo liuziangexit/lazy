@@ -9,7 +9,5 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
-    - name: make
-      run: cd test&&make
-    - name: test
-      run: ./main.dll
+    - name: build-test
+      run: cd test&&make&&./main.dll
