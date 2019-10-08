@@ -30,24 +30,23 @@ namespace detail {
 template <std::size_t...> struct sequence {};
 
 template <std::size_t _Size, std::size_t... _Sequence>
-struct make_index_sequence
-    : make_index_sequence<_Size - 1, _Size - 1, _Sequence...> {};
+struct make_integer_sequence
+    : make_integer_sequence<_Size - 1, _Size - 1, _Sequence...> {};
 
 template <std::size_t... _Sequence>
-struct make_index_sequence<0, _Sequence...> {
+struct make_integer_sequence<0, _Sequence...> {
   using type = sequence<_Sequence...>;
 };
 
 template <typename _Func, typename _Tuple, std::size_t... index_sequence>
-void do_call(const _Func &func, const _Tuple &tuple,
-             sequence<index_sequence...>) {
-  func(std::get<index_sequence>(tuple)...);
+void do_call(const _Func &func, _Tuple &&tuple, sequence<index_sequence...>) {
+  func(std::get<index_sequence>(std::forward<_Tuple>(tuple))...);
 }
 
 template <typename _Func, typename _Tuple>
-void function_call(const _Func &func, const _Tuple &tuple) {
-  do_call(func, tuple,
-          typename make_index_sequence<std::tuple_size_v<_Tuple>>::type());
+void function_call(const _Func &func, _Tuple &&tuple) {
+  do_call(func, std::forward<_Tuple>(tuple),
+          typename make_integer_sequence<std::tuple_size_v<_Tuple>>::type());
 }
 
 } // namespace detail
@@ -64,21 +63,33 @@ public:
   using value_type =
       typename std::remove_reference_t<typename std::remove_cv_t<_Ty>>;
   using allocator_type = _Alloc;
-  static_assert(
-      std::is_same_v<value_type, typename std::allocator_traits<
-                                     allocator_type>::value_type>,
-      "lazy::value_type should equals to lazy::allocator_type::value_type");
   using reference = value_type &;
   using const_reference = const value_type &;
   using pointer = value_type *;
 
+  static_assert(
+      std::is_same_v<
+          value_type, //
+          typename std::allocator_traits<allocator_type>::value_type>,
+      "lazy::value_type should equals to lazy::allocator_type::value_type");
+
 private:
-  using constructor_args_tuple = std::tuple<_ConstructorArgs...>;
+  using constructor_arguments_tuple = std::tuple<_ConstructorArgs...>;
 
 public:
+  /*
+   use _DeductionTrigger(type parameter of templated constructor) rather than
+   _ConstructorArgs(type parameter of template class) to trigger a deduction.
+
+   this deduction makes variable 'args' becomes a forwarding reference but not
+   a rvalue reference.
+    */
+  template <typename... _DeductionTrigger>
   constexpr explicit lazy(const allocator_type &alloc,
-                          const _ConstructorArgs &... args)
-      : m_allocator(alloc), m_constructor_args(std::make_tuple(args...)),
+                          _DeductionTrigger &&... args)
+      : m_allocator(alloc), //
+        m_constructor_arguments(
+            std::make_tuple(std::forward<_DeductionTrigger>(args)...)),
         m_instance(nullptr) {}
 
   lazy(const lazy &) = delete;
@@ -86,15 +97,17 @@ public:
   lazy(lazy &&rhs) noexcept
       : m_instance(rhs.m_instance.load(std::memory_order_relaxed)),
         m_allocator(std::move(rhs.m_allocator)),
-        m_constructor_args(std::move(rhs.m_constructor_args)) {
+        m_constructor_arguments(std::move(rhs.m_constructor_arguments)) {
     rhs.m_instance.store(nullptr, std::memory_order_relaxed);
   }
 
-  lazy operator=(const lazy &) = delete;
+  lazy &operator=(const lazy &) = delete;
 
-  lazy operator=(lazy &&rhs) noexcept {
+  lazy &operator=(lazy &&rhs) noexcept {
+    if (this == &rhs)
+      return *this;
     this->~lazy();
-    new (this) lazy(std::move(rhs));
+    return *new (this) lazy(std::move(rhs));
   }
 
   ~lazy() noexcept {
@@ -116,10 +129,11 @@ public:
         try {
           // invoke constructor
           detail::function_call(
-              [new_instance](const auto &... args) {
-                new (new_instance) value_type(args...);
+              [new_instance](auto &&... args) {
+                new (new_instance) value_type( //
+                    std::forward<decltype(args)>(args)...);
               },
-              this->m_constructor_args);
+              std::move(this->m_constructor_arguments));
         } catch (...) {
           this->m_allocator.deallocate(new_instance, 1);
           throw construction_error();
@@ -145,14 +159,16 @@ public:
 private:
   std::atomic<pointer> m_instance;
   allocator_type m_allocator;
-  constructor_args_tuple m_constructor_args;
+  constructor_arguments_tuple m_constructor_arguments;
   std::mutex m_lock;
 };
 
 template <typename _Ty, typename... _ConstructorArgs>
-auto make_lazy(const _ConstructorArgs &... constructor_args) {
-  return lazy<_Ty, std::allocator<_Ty>, _ConstructorArgs...>(
-      std::allocator<_Ty>(), constructor_args...);
+auto make_lazy(_ConstructorArgs &&... constructor_args) {
+  return lazy<_Ty, std::allocator<_Ty>,
+              std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>(
+      std::allocator<_Ty>(),
+      std::forward<_ConstructorArgs>(constructor_args)...);
 }
 
 } // namespace liuziangexit_lazy

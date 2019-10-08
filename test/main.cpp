@@ -1,4 +1,3 @@
-#pragma once
 #ifdef _WIN32
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
@@ -6,6 +5,7 @@
 #endif
 
 #include "../include/lazy.h"
+#include <cassert>
 #include <exception>
 #include <iostream>
 #include <map>
@@ -36,40 +36,84 @@ struct bomb {
   bomb() { throw std::exception(); }
 };
 
-void case_assert(bool v) {
-  if (!v) {
-    abort();
+static int *empty_count = nullptr;
+static int *copy_count = nullptr;
+static int *move_count = nullptr;
+
+class test_forwarding {
+public:
+  test_forwarding() { (*empty_count)++; }
+
+  test_forwarding(const test_forwarding &rhs) { (*copy_count)++; }
+
+  test_forwarding(test_forwarding &&rhs) { (*move_count)++; }
+};
+
+class test_forwarding_holder {
+public:
+  test_forwarding_holder(test_forwarding &&a) : m(std::move(a)) {
+    //(*move_count)++;
   }
-}
+  test_forwarding_holder(const test_forwarding &a) : m(a) {
+    //(*copy_count)++;
+  }
+  test_forwarding m;
+};
 
 int main() {
   {
     std::map<int, int> map;
-    argclass arg(map, 1);
+    argclass argv(map, 1);
 
     auto lazy1 = make_lazy<valueclass>();
-    case_assert(lazy1.is_instance_created() == false);
-    case_assert(lazy1.get_instance().arg_count == 0);
-    case_assert(lazy1.is_instance_created() == true);
-    case_assert(lazy1.get_instance().arg_count == 0);
-    case_assert(lazy1.is_instance_created() == true);
+    assert(lazy1.is_instance_created() == false);
+    assert(lazy1.get_instance().arg_count == 0);
+    assert(lazy1.is_instance_created() == true);
+    assert(lazy1.get_instance().arg_count == 0);
+    assert(lazy1.is_instance_created() == true);
     auto lazy2 = std::move(lazy1);
-    case_assert(lazy1.is_instance_created() == false);
-    case_assert(lazy2.is_instance_created() == true);
-    case_assert(lazy2.get_instance().arg_count == 0);
-    case_assert(map[1] == 0);
-    auto lazy3 = make_lazy<valueclass>(arg, arg);
-    case_assert(map[1] == 2);
-    case_assert(lazy3.is_instance_created() == false);
-    case_assert(lazy3.get_instance().arg_count == 2);
-    case_assert(lazy3.is_instance_created() == true);
-    case_assert(&lazy3.get_instance() == &lazy3.get_instance());
+    assert(lazy1.is_instance_created() == false);
+    assert(lazy2.is_instance_created() == true);
+    assert(lazy2.get_instance().arg_count == 0);
+    assert(map[1] == 0);
+    auto lazy3 = make_lazy<valueclass>(argv, argv);
+    assert(map[1] == 2);
+    assert(lazy3.is_instance_created() == false);
+    assert(lazy3.get_instance().arg_count == 2);
+    assert(lazy3.is_instance_created() == true);
+    assert(&lazy3.get_instance() == &lazy3.get_instance());
     auto lazy4 = make_lazy<bomb>();
     try {
       lazy4.get_instance();
-      case_assert(false);
+      assert(false);
     } catch (const construction_error &ex) {
     }
+
+    int empty = 0, copy = 0, move = 0;
+    empty_count = &empty;
+    copy_count = &copy;
+    move_count = &move;
+    test_forwarding aaaa;
+    assert(empty == 1);
+    auto lazy5 =
+        liuziangexit_lazy::make_lazy<test_forwarding_holder>(std::move(aaaa));
+    assert(empty == 1);
+    assert(move == 1);
+    lazy5.get_instance();
+    assert(empty == 1);
+    assert(move == 2);
+    assert(copy == 0);
+    copy = 0;
+    move = 0;
+
+    lazy5 = liuziangexit_lazy::make_lazy<test_forwarding_holder>(aaaa);
+    assert(empty == 1);
+    assert(copy == 1);
+    assert(move == 1); // move element while moving the whole lazy object
+    lazy5.get_instance();
+    assert(empty == 1);
+    assert(copy == 1);
+    assert(move == 2);
 
     std::cout << "GREAT SUCCESS!";
     // std::cin.get();

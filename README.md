@@ -9,7 +9,7 @@ lazy initialization implementation written in C++17.
 <br>
 -Support thread-safety / 线程安全支持
 <br>
--Support passing constructor arguments / 支持传递构造函数参数
+-Support passing constructor arguments(Forwarding Reference) / 支持传递构造函数参数（完美转发）
 <br>
 -Efficient double check pattern / 高效的双检模式
 <h2>Usage / 使用</h2>
