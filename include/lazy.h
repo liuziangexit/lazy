@@ -38,15 +38,16 @@ struct make_integer_sequence<0, _Sequence...> {
   using type = sequence<_Sequence...>;
 };
 
-template <typename _Func, typename _Tuple, std::size_t... index_sequence>
-void do_call(const _Func &func, _Tuple &&tuple, sequence<index_sequence...>) {
-  func(std::get<index_sequence>(std::forward<_Tuple>(tuple))...);
+template <typename _Func, typename _Tuple, std::size_t... index>
+constexpr void do_call(const _Func &func, _Tuple &&tuple, sequence<index...>) {
+  func(std::get<index>(std::forward<_Tuple>(tuple))...);
 }
 
 template <typename _Func, typename _Tuple>
-void function_call(const _Func &func, _Tuple &&tuple) {
+constexpr void function_call(const _Func &func, _Tuple &&tuple) {
   do_call(func, std::forward<_Tuple>(tuple),
-          typename make_integer_sequence<std::tuple_size_v<_Tuple>>::type());
+          typename make_integer_sequence<
+              std::tuple_size_v<std::remove_reference_t<_Tuple>>>::type());
 }
 
 } // namespace detail
