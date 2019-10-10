@@ -5,7 +5,6 @@
 #endif
 
 #include "../include/lazy.h"
-#include <cassert>
 #include <cstring>
 #include <exception>
 #include <iostream>
@@ -61,63 +60,77 @@ public:
   test_forwarding m;
 };
 
+void test(bool b) {
+  if (!b)
+    throw std::exception();
+}
+
 int main() {
   {
     std::map<int, int> map;
     argclass argv(map, 1);
 
+    // basic cases without ctor argument
     auto lazy1 = make_lazy<valueclass>();
-    assert(lazy1.is_instance_created() == false);
-    assert(lazy1.get_instance().arg_count == 0);
-    assert(lazy1.is_instance_created() == true);
-    assert(lazy1.get_instance().arg_count == 0);
-    assert(lazy1.is_instance_created() == true);
+    test(lazy1.is_instance_created() == false);
+    test(lazy1.get_instance().arg_count == 0);
+    test(lazy1.is_instance_created() == true);
+    test(lazy1.get_instance().arg_count == 0);
+    test(lazy1.is_instance_created() == true);
+    // move ctor
     auto lazy2 = std::move(lazy1);
-    assert(lazy1.is_instance_created() == false);
-    assert(lazy2.is_instance_created() == true);
-    assert(lazy2.get_instance().arg_count == 0);
-    assert(map[1] == 0);
+    test(lazy1.is_instance_created() == false);
+    test(lazy2.is_instance_created() == true);
+    test(lazy2.get_instance().arg_count == 0);
+    test(map[1] == 0);
+    //basic cases with ctor argument
     auto lazy3 = make_lazy<valueclass>(argv, argv);
-    assert(map[1] == 2);
-    assert(lazy3.is_instance_created() == false);
-    assert(lazy3.get_instance().arg_count == 2);
-    assert(lazy3.is_instance_created() == true);
-    assert(&lazy3.get_instance() == &lazy3.get_instance());
+    test(map[1] == 2);
+    test(lazy3.is_instance_created() == false);
+    test(lazy3.get_instance().arg_count == 2);
+    test(lazy3.is_instance_created() == true);
+    test(&lazy3.get_instance() == &lazy3.get_instance());
+    //what if ctor throws an exception?
+    //everything should be fine
     auto lazy4 = make_lazy<bomb>();
     try {
       lazy4.get_instance();
-      assert(false);
+      test(false);
     } catch (const std::runtime_error &ex) {
-      assert(strcmp(ex.what(), "naive") == 0);
+      //is this the origin exception thrown by the ctor?
+      test(strcmp(ex.what(), "naive") == 0);
     } catch (...) {
-      assert(false);
+      //something wrong
+      test(false);
     }
 
+    //test ctor argument forwarding
     int empty = 0, copy = 0, move = 0;
     empty_count = &empty;
     copy_count = &copy;
     move_count = &move;
     test_forwarding aaaa;
-    assert(empty == 1);
+    test(empty == 1);
     auto lazy5 =
         liuziangexit_lazy::make_lazy<test_forwarding_holder>(std::move(aaaa));
-    assert(empty == 1);
-    assert(move == 1);
+    test(empty == 1);
+    test(move == 1);
     lazy5.get_instance();
-    assert(empty == 1);
-    assert(move == 2);
-    assert(copy == 0);
+    test(empty == 1);
+    test(move == 2);
+    test(copy == 0);
     copy = 0;
     move = 0;
 
+    //test move operator
     lazy5 = liuziangexit_lazy::make_lazy<test_forwarding_holder>(aaaa);
-    assert(empty == 1);
-    assert(copy == 1);
-    assert(move == 1); // move element while moving the whole lazy object
+    test(empty == 1);
+    test(copy == 1);
+    test(move == 1); // move element while moving the whole lazy object
     lazy5.get_instance();
-    assert(empty == 1);
-    assert(copy == 1);
-    assert(move == 2);
+    test(empty == 1);
+    test(copy == 1);
+    test(move == 2);
 
     std::cout << "GREAT SUCCESS!";
     // std::cin.get();
