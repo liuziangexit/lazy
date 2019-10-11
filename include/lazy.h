@@ -124,33 +124,32 @@ public:
    std::bad_alloc will be thrown.
   */
   value_type &get_instance() {
-    if (!m_instance.load(std::memory_order::memory_order_acquire)) {
+    value_type *instance = m_instance.load(std::memory_order::memory_order_acquire);
+    if (!instance) {
       std::lock_guard<std::mutex> guard(m_lock);
-      if (!m_instance.load(std::memory_order::memory_order_relaxed)) {
+      instance = m_instance.load(std::memory_order::memory_order_relaxed);
+      if (!instance) {
         // allocate memory
-        value_type *new_instance = this->m_allocator.allocate(1);
+        instance = this->m_allocator.allocate(1);
         try {
           // invoke constructor
           detail::function_call(
-              [new_instance](auto &&... args) {
-                new (new_instance) value_type( //
+              [instance](auto &&... args) {
+                new (instance) value_type( //
                     std::forward<decltype(args)>(args)...);
               },
               std::move(this->m_constructor_arguments));
         } catch (...) {
-          this->m_allocator.deallocate(new_instance, 1);
+          this->m_allocator.deallocate(instance, 1);
           std::rethrow_exception(std::current_exception());
         }
-        m_instance.store(new_instance, std::memory_order::memory_order_release);
+        m_instance.store(instance, std::memory_order::memory_order_release);
       }
     }
-    // https://en.cppreference.com/w/cpp/utility/launder
-    // https://en.cppreference.com/w/cpp/feature_test
 #ifdef __cpp_lib_launder
-    return *std::launder(
-        m_instance.load(std::memory_order::memory_order_relaxed));
+    return *std::launder(instance);
 #else
-    return *m_instance.load(std::memory_order::memory_order_relaxed);
+    return *instance;
 #endif
   }
 
