@@ -173,5 +173,10 @@ auto make_lazy(_ConstructorArgs &&... constructor_args) {
       std::forward<_ConstructorArgs>(constructor_args)...);
 }
 
+template <typename _Ty, typename... _ConstructorArgs>
+using lazy_t =
+    lazy<_Ty, std::allocator<_Ty>,
+         std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>;
+
 } // namespace liuziangexit_lazy
 #endif
