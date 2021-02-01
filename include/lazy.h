@@ -83,11 +83,11 @@ public:
   */
   template <typename... _DeductionTrigger>
   constexpr explicit lazy(const allocator_type &alloc,
-                          _DeductionTrigger &&... args)
-      : m_allocator(alloc), //
+                          _DeductionTrigger &&...args)
+      : m_instance(nullptr), //
+        m_allocator(alloc),  //
         m_constructor_arguments(
-            std::make_tuple(std::forward<_DeductionTrigger>(args)...)),
-        m_instance(nullptr) {}
+            std::make_tuple(std::forward<_DeductionTrigger>(args)...)) {}
 
   lazy(const lazy &) = delete;
 
@@ -124,7 +124,8 @@ public:
    std::bad_alloc will be thrown.
   */
   value_type &get_instance() {
-    value_type *instance = m_instance.load(std::memory_order::memory_order_acquire);
+    value_type *instance =
+        m_instance.load(std::memory_order::memory_order_acquire);
     if (!instance) {
       std::lock_guard<std::mutex> guard(m_lock);
       instance = m_instance.load(std::memory_order::memory_order_relaxed);
@@ -134,7 +135,7 @@ public:
         try {
           // invoke constructor
           detail::function_call(
-              [instance](auto &&... args) {
+              [instance](auto &&...args) {
                 new (instance) value_type( //
                     std::forward<decltype(args)>(args)...);
               },
@@ -166,7 +167,7 @@ private:
 };
 
 template <typename _Ty, typename... _ConstructorArgs>
-auto make_lazy(_ConstructorArgs &&... constructor_args) {
+auto make_lazy(_ConstructorArgs &&...constructor_args) {
   return lazy<_Ty, std::allocator<_Ty>,
               std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>(
       std::allocator<_Ty>(),
