@@ -108,7 +108,10 @@ public:
   }
 
   ~lazy() noexcept {
-    this->m_instance.load(std::memory_order_relaxed)->~value_type();
+    auto ins = this->m_instance.load(std::memory_order_relaxed);
+    if (ins) {
+      ins->~value_type();
+    }
     this->m_allocator.deallocate(
         this->m_instance.load(std::memory_order_relaxed), 1);
   }
